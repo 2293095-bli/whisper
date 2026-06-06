@@ -84,15 +84,15 @@ export default function EntryForm({ onSuccess }: Props) {
               handleSubmit();
             }
           }}
-          placeholder="오늘 느낀 것을 남겨보세요…"
+          placeholder="whispering..."
           maxLength={100}
           rows={3}
           className="
             w-full bg-paper border border-muted rounded
-            text-light placeholder-dim font-serif text-lg
+            text-light placeholder-dim font-mono text-base
             py-3 px-4 pr-16 resize-none outline-none
             transition-colors focus:border-accent/60
-            leading-relaxed
+            leading-relaxed tracking-wide
           "
         />
         <span
@@ -110,19 +110,16 @@ export default function EntryForm({ onSuccess }: Props) {
       <TurnstileWidget onVerify={handleVerify} onExpire={handleExpire} />
 
       {error && (
-        <p className="mt-3 text-red-400 text-sm font-sans">{error}</p>
+        <p className="mt-3 text-red-400 text-sm font-mono">{error}</p>
       )}
 
       {/* Actions */}
-      <div className="mt-5 flex items-center justify-between">
-        <p className="text-dim text-xs font-sans">
-          Enter 키로도 전송할 수 있어요
-        </p>
+      <div className="mt-5 flex items-center justify-end">
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
           className="
-            px-6 py-2.5 text-sm font-sans tracking-widest uppercase
+            px-6 py-2.5 text-sm font-mono tracking-widest
             border border-accent/40 text-accent
             disabled:opacity-30 disabled:cursor-not-allowed
             hover:bg-accent hover:text-ink active:scale-95
@@ -134,7 +131,7 @@ export default function EntryForm({ onSuccess }: Props) {
           ) : sent ? (
             "✓"
           ) : (
-            "남기기"
+            "기록"
           )}
         </button>
       </div>

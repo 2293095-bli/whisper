@@ -20,13 +20,8 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function EntryList({ entries }: { entries: Entry[] }) {
-  if (entries.length === 0) {
-    return (
-      <p className="text-dim text-center font-serif italic text-lg py-16 animate-fade-in">
-        아직 남겨진 말이 없어요
-      </p>
-    );
-  }
+  // 글 없으면 아무것도 렌더링하지 않음
+  if (entries.length === 0) return null;
 
   return (
     <ul className="divide-y divide-[#191919]">
@@ -39,10 +34,10 @@ export default function EntryList({ entries }: { entries: Entry[] }) {
             opacity: 0,
           }}
         >
-          <p className="font-serif text-light text-lg leading-relaxed break-words">
+          <p className="font-mono text-light text-base leading-relaxed break-words tracking-wide">
             {entry.message}
           </p>
-          <time className="mt-2 block font-mono text-xs text-dim tracking-wide">
+          <time className="mt-2 block font-mono text-xs text-dim tracking-widest">
             {timeAgo(entry.created_at)}
           </time>
         </li>

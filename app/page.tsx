@@ -38,11 +38,12 @@ export default function Home() {
     <main className="min-h-screen flex flex-col">
       {/* ── Header ── */}
       <header className="px-6 pt-16 pb-10 max-w-lg mx-auto w-full animate-fade-in">
-        <span className="font-mono text-xs text-dim tracking-[0.3em] uppercase">
+        <span className="font-mono text-xs text-dim tracking-[0.3em]">
           {todayLabel}
         </span>
-        <h1 className="mt-2 font-serif text-4xl text-light font-light leading-tight">
-          오늘의 한 줄
+        {/* 제목: 작은 크기, 모노 폰트, 얇게 */}
+        <h1 className="mt-3 font-mono text-base text-light font-light leading-relaxed tracking-wide">
+          여러분도 누군가에게 Whisper가 되어주세요
         </h1>
       </header>
 
