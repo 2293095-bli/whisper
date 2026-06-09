@@ -43,7 +43,7 @@ export default function Home() {
         </span>
         {/* 제목: 작은 크기, 모노 폰트, 얇게 */}
         <h1 className="mt-3 font-mono text-base text-light font-light leading-relaxed tracking-wide">
-          여러분도 누군가에게 Whisper가 되어주세요
+          당신의 Whisper가 필요한 사람이 있습니다.
         </h1>
       </header>
 
