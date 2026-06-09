@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Whisper",
-  description: "여러분도 누군가에게 Whisper가 되어주세요",
+  description: "당신의 Whisper가 필요한 사람이 있습니다.",
 };
 
 export default function RootLayout({
