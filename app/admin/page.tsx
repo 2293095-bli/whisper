@@ -11,21 +11,20 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
   if (total <= 7) {
     return Array.from({ length: total }, (_, i) => i + 1);
   }
-
   const pages: (number | "...")[] = [1];
-
   if (current <= 4) {
-    for (let i = 2; i <= Math.min(5, total - 1); i++) pages.push(i);
+    for (let i = 2; i <= 5; i++) pages.push(i);
     pages.push("...");
   } else if (current >= total - 3) {
     pages.push("...");
-    for (let i = Math.max(2, total - 4); i <= total - 1; i++) pages.push(i);
+    for (let i = total - 4; i <= total - 1; i++) pages.push(i);
   } else {
     pages.push("...");
-    for (let i = current - 1; i <= current + 1; i++) pages.push(i);
+    pages.push(current - 1);
+    pages.push(current);
+    pages.push(current + 1);
     pages.push("...");
   }
-
   pages.push(total);
   return pages;
 }
@@ -64,6 +63,10 @@ export default function Home() {
 
   const pageNumbers = getPageNumbers(page, totalPages);
 
+  const btnBase = "px-2.5 py-1.5 font-mono text-xs border transition-all duration-200";
+  const btnIdle = "border-muted/40 text-dim hover:border-white/30 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed";
+  const btnActive = "border-white/60 text-white bg-white/10";
+
   return (
     <main className="min-h-screen flex flex-col">
       <header className="px-6 pt-16 pb-10 max-w-lg mx-auto w-full animate-fade-in">
@@ -93,49 +96,41 @@ export default function Home() {
       <section className="flex-1 px-6 pt-10 pb-16 max-w-lg mx-auto w-full" aria-label="방명록 목록">
         {loading ? (
           <div className="flex justify-center pt-16">
-            <div className="w-5 h-5 border border-dim border-t-accent rounded-full animate-spin" />
+            <div className="w-5 h-5 border border-dim border-t-white/40 rounded-full animate-spin" />
           </div>
         ) : (
           <>
             <EntryList entries={entries} />
 
-            {/* ── 페이지네이션 ── */}
             <div className="mt-10 flex items-center justify-center gap-1 flex-wrap">
               {/* 맨 처음 */}
               <button
                 onClick={() => loadPage(1)}
                 disabled={page <= 1}
-                className="px-2 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                className={`${btnBase} ${btnIdle}`}
               >
                 «
               </button>
-
               {/* 이전 */}
               <button
                 onClick={() => loadPage(page - 1)}
                 disabled={page <= 1}
-                className="px-2 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                className={`${btnBase} ${btnIdle}`}
               >
                 ‹
               </button>
 
-              {/* 페이지 번호 */}
+              {/* 번호 */}
               {pageNumbers.map((p, i) =>
                 p === "..." ? (
-                  <span key={`ellipsis-${i}`} className="px-2 font-mono text-xs text-dim select-none">
+                  <span key={`dots-${i}`} className="px-1.5 font-mono text-xs text-dim select-none">
                     …
                   </span>
                 ) : (
                   <button
                     key={p}
                     onClick={() => loadPage(p as number)}
-                    className={`
-                      min-w-[32px] px-2 py-1.5 font-mono text-xs border transition-all duration-200
-                      ${p === page
-                        ? "border-accent/60 text-accent bg-accent/10"
-                        : "border-muted text-dim hover:border-accent/50 hover:text-accent"
-                      }
-                    `}
+                    className={`${btnBase} min-w-[32px] ${p === page ? btnActive : btnIdle}`}
                   >
                     {p}
                   </button>
@@ -146,16 +141,15 @@ export default function Home() {
               <button
                 onClick={() => loadPage(page + 1)}
                 disabled={page >= totalPages}
-                className="px-2 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                className={`${btnBase} ${btnIdle}`}
               >
                 ›
               </button>
-
               {/* 맨 끝 */}
               <button
                 onClick={() => loadPage(totalPages)}
                 disabled={page >= totalPages}
-                className="px-2 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                className={`${btnBase} ${btnIdle}`}
               >
                 »
               </button>
