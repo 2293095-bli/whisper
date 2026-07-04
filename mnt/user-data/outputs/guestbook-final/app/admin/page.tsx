@@ -7,23 +7,33 @@ import type { Entry } from "@/types";
 
 const LIMIT = 30;
 
-type PageData = { entries: Entry[]; hasMore: boolean };
-
-async function fetchPageData(pageNum: number): Promise<PageData | null> {
-  try {
-    const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
-    if (!res.ok) return null;
-    return (await res.json()) as PageData;
-  } catch {
-    return null;
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
   }
+  const pages: (number | "...")[] = [1];
+  if (current <= 4) {
+    for (let i = 2; i <= 5; i++) pages.push(i);
+    pages.push("...");
+  } else if (current >= total - 3) {
+    pages.push("...");
+    for (let i = total - 4; i <= total - 1; i++) pages.push(i);
+  } else {
+    pages.push("...");
+    pages.push(current - 1);
+    pages.push(current);
+    pages.push(current + 1);
+    pages.push("...");
+  }
+  pages.push(total);
+  return pages;
 }
 
 export default function Home() {
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [page,    setPage]    = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [entries,    setEntries]    = useState<Entry[]>([]);
+  const [page,       setPage]       = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading,    setLoading]    = useState(true);
 
   const todayLabel = new Date().toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -33,28 +43,32 @@ export default function Home() {
 
   const loadPage = useCallback(async (pageNum: number) => {
     setLoading(true);
-    const data = await fetchPageData(pageNum);
-    if (data) {
-      setEntries(data.entries);   // 항상 교체
-      setHasMore(data.hasMore);
+    try {
+      const res  = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
+      const json = await res.json();
+      setEntries(Array.isArray(json?.entries) ? json.entries : []);
+      setTotalPages(typeof json?.totalPages === "number" ? Math.max(1, json.totalPages) : 1);
       setPage(pageNum);
+    } catch {
+      setEntries([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  // 첫 마운트
-  useEffect(() => {
-    loadPage(1);
-  }, [loadPage]);
+  useEffect(() => { loadPage(1); }, [loadPage]);
 
-  // 새 글 작성 성공 → 1페이지로 리셋
-  const handleSuccess = useCallback(async (_entry: Entry) => {
-    await loadPage(1);
-  }, [loadPage]);
+  const handleSuccess = useCallback((_entry: Entry) => { loadPage(1); }, [loadPage]);
+
+  const pageNumbers = getPageNumbers(page, totalPages);
+
+  const btnBase = "px-2.5 py-1.5 font-mono text-xs border transition-all duration-200";
+  const btnIdle = "border-muted/40 text-dim hover:border-white/30 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed";
+  const btnActive = "border-white/60 text-white bg-white/10";
 
   return (
     <main className="min-h-screen flex flex-col">
-      {/* ── Header ── */}
       <header className="px-6 pt-16 pb-10 max-w-lg mx-auto w-full animate-fade-in">
         <span className="font-mono text-xs text-dim tracking-[0.3em]">
           {todayLabel}
@@ -64,7 +78,6 @@ export default function Home() {
         </h1>
       </header>
 
-      {/* ── Form ── */}
       <section
         className="px-6 pb-14 max-w-lg mx-auto w-full animate-fade-up"
         style={{ animationDelay: "120ms", opacity: 0 }}
@@ -72,7 +85,6 @@ export default function Home() {
         <EntryForm onSuccess={handleSuccess} />
       </section>
 
-      {/* ── Divider ── */}
       <div className="max-w-lg mx-auto w-full px-6">
         <div className="border-t border-muted/60 relative">
           <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-ink px-3 font-mono text-xs text-dim tracking-widest">
@@ -81,60 +93,71 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Entries ── */}
-      <section
-        className="flex-1 px-6 pt-10 pb-16 max-w-lg mx-auto w-full"
-        aria-label="방명록 목록"
-      >
+      <section className="flex-1 px-6 pt-10 pb-16 max-w-lg mx-auto w-full" aria-label="방명록 목록">
         {loading ? (
           <div className="flex justify-center pt-16">
-            <div className="w-5 h-5 border border-dim border-t-accent rounded-full animate-spin" />
+            <div className="w-5 h-5 border border-dim border-t-white/40 rounded-full animate-spin" />
           </div>
         ) : (
           <>
             <EntryList entries={entries} />
 
-            {/* ── 이전 / 페이지 번호 / 다음 ── */}
-            {(page > 1 || hasMore) && (
-              <div className="mt-10 flex items-center justify-center gap-6">
-                <button
-                  onClick={() => loadPage(page - 1)}
-                  disabled={page <= 1}
-                  className="
-                    px-4 py-1.5 font-mono text-xs tracking-widest
-                    border border-muted text-dim
-                    hover:border-accent/50 hover:text-accent
-                    disabled:opacity-20 disabled:cursor-not-allowed
-                    transition-all duration-200
-                  "
-                >
-                  ← 이전
-                </button>
+            <div className="mt-10 flex items-center justify-center gap-1 flex-wrap">
+              {/* 맨 처음 */}
+              <button
+                onClick={() => loadPage(1)}
+                disabled={page <= 1}
+                className={`${btnBase} ${btnIdle}`}
+              >
+                «
+              </button>
+              {/* 이전 */}
+              <button
+                onClick={() => loadPage(page - 1)}
+                disabled={page <= 1}
+                className={`${btnBase} ${btnIdle}`}
+              >
+                ‹
+              </button>
 
-                <span className="font-mono text-xs text-dim tabular-nums">
-                  {page}
-                </span>
+              {/* 번호 */}
+              {pageNumbers.map((p, i) =>
+                p === "..." ? (
+                  <span key={`dots-${i}`} className="px-1.5 font-mono text-xs text-dim select-none">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => loadPage(p as number)}
+                    className={`${btnBase} min-w-[32px] ${p === page ? btnActive : btnIdle}`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
 
-                <button
-                  onClick={() => loadPage(page + 1)}
-                  disabled={!hasMore}
-                  className="
-                    px-4 py-1.5 font-mono text-xs tracking-widest
-                    border border-muted text-dim
-                    hover:border-accent/50 hover:text-accent
-                    disabled:opacity-20 disabled:cursor-not-allowed
-                    transition-all duration-200
-                  "
-                >
-                  다음 →
-                </button>
-              </div>
-            )}
+              {/* 다음 */}
+              <button
+                onClick={() => loadPage(page + 1)}
+                disabled={page >= totalPages}
+                className={`${btnBase} ${btnIdle}`}
+              >
+                ›
+              </button>
+              {/* 맨 끝 */}
+              <button
+                onClick={() => loadPage(totalPages)}
+                disabled={page >= totalPages}
+                className={`${btnBase} ${btnIdle}`}
+              >
+                »
+              </button>
+            </div>
           </>
         )}
       </section>
 
-      {/* ── Footer ── */}
       <footer className="pb-8 text-center">
         <p className="font-mono text-xs text-muted tracking-wider">
           익명으로 남겨집니다
