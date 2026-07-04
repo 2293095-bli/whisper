@@ -22,20 +22,10 @@ export default function Home() {
   const loadPage = useCallback(async (pageNum: number) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
-      if (!res.ok) {
-        setEntries([]);
-        setHasMore(false);
-        return;
-      }
+      const res  = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
       const json = await res.json();
-
-      // 방어: entries가 배열인지 반드시 확인
-      const safeEntries: Entry[] = Array.isArray(json?.entries) ? json.entries : [];
-      const safeHasMore: boolean = json?.hasMore === true;
-
-      setEntries(safeEntries);
-      setHasMore(safeHasMore);
+      setEntries(Array.isArray(json?.entries) ? json.entries : []);
+      setHasMore(json?.hasMore === true);
       setPage(pageNum);
     } catch {
       setEntries([]);
@@ -45,17 +35,12 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    loadPage(1);
-  }, [loadPage]);
+  useEffect(() => { loadPage(1); }, [loadPage]);
 
-  const handleSuccess = useCallback((_entry: Entry) => {
-    loadPage(1);
-  }, [loadPage]);
+  const handleSuccess = useCallback((_entry: Entry) => { loadPage(1); }, [loadPage]);
 
   return (
     <main className="min-h-screen flex flex-col">
-      {/* ── Header ── */}
       <header className="px-6 pt-16 pb-10 max-w-lg mx-auto w-full animate-fade-in">
         <span className="font-mono text-xs text-dim tracking-[0.3em]">
           {todayLabel}
@@ -65,7 +50,6 @@ export default function Home() {
         </h1>
       </header>
 
-      {/* ── Form ── */}
       <section
         className="px-6 pb-14 max-w-lg mx-auto w-full animate-fade-up"
         style={{ animationDelay: "120ms", opacity: 0 }}
@@ -73,7 +57,6 @@ export default function Home() {
         <EntryForm onSuccess={handleSuccess} />
       </section>
 
-      {/* ── Divider ── */}
       <div className="max-w-lg mx-auto w-full px-6">
         <div className="border-t border-muted/60 relative">
           <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-ink px-3 font-mono text-xs text-dim tracking-widest">
@@ -82,11 +65,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Entries ── */}
-      <section
-        className="flex-1 px-6 pt-10 pb-16 max-w-lg mx-auto w-full"
-        aria-label="방명록 목록"
-      >
+      <section className="flex-1 px-6 pt-10 pb-16 max-w-lg mx-auto w-full" aria-label="방명록 목록">
         {loading ? (
           <div className="flex justify-center pt-16">
             <div className="w-5 h-5 border border-dim border-t-accent rounded-full animate-spin" />
@@ -95,47 +74,29 @@ export default function Home() {
           <>
             <EntryList entries={entries} />
 
-            {/* 페이지 버튼: 1페이지이고 다음도 없으면 숨김 */}
-            {(page > 1 || hasMore) && (
-              <div className="mt-10 flex items-center justify-center gap-8">
-                <button
-                  onClick={() => loadPage(page - 1)}
-                  disabled={page <= 1}
-                  className="
-                    px-4 py-1.5 font-mono text-xs tracking-widest
-                    border border-muted text-dim
-                    hover:border-accent/50 hover:text-accent
-                    disabled:opacity-20 disabled:cursor-not-allowed
-                    transition-all duration-200
-                  "
-                >
-                  ← 이전
-                </button>
-
-                <span className="font-mono text-xs text-dim tabular-nums">
-                  {page}
-                </span>
-
-                <button
-                  onClick={() => loadPage(page + 1)}
-                  disabled={!hasMore}
-                  className="
-                    px-4 py-1.5 font-mono text-xs tracking-widest
-                    border border-muted text-dim
-                    hover:border-accent/50 hover:text-accent
-                    disabled:opacity-20 disabled:cursor-not-allowed
-                    transition-all duration-200
-                  "
-                >
-                  다음 →
-                </button>
-              </div>
-            )}
+            <div className="mt-10 flex items-center justify-center gap-8">
+              <button
+                onClick={() => loadPage(page - 1)}
+                disabled={page <= 1}
+                className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                ← 이전
+              </button>
+              <span className="font-mono text-xs text-dim tabular-nums">
+                Page {page}
+              </span>
+              <button
+                onClick={() => loadPage(page + 1)}
+                disabled={!hasMore}
+                className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                다음 →
+              </button>
+            </div>
           </>
         )}
       </section>
 
-      {/* ── Footer ── */}
       <footer className="pb-8 text-center">
         <p className="font-mono text-xs text-muted tracking-wider">
           익명으로 남겨집니다
