@@ -19,49 +19,27 @@ export default function Home() {
     day: "2-digit",
   });
 
-  // entries를 교체(append 아님)
-  const fetchPage = useCallback(async (pageNum: number) => {
+  const loadPage = useCallback(async (pageNum: number) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
       if (!res.ok) return;
-      const data = (await res.json()) as { entries: Entry[]; hasMore: boolean };
-      setEntries(data.entries);
-      setHasMore(data.hasMore);
+      const json = await res.json() as { entries: Entry[]; hasMore: boolean };
+      setEntries(json.entries ?? []);
+      setHasMore(json.hasMore ?? false);
+      setPage(pageNum);
+    } catch {
+      // 네트워크 에러 무시 — 빈 목록 유지
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // 첫 마운트
-  useEffect(() => {
-    fetchPage(1);
-  }, [fetchPage]);
+  useEffect(() => { loadPage(1); }, [loadPage]);
 
-  // 새 글 작성 성공 → page=1로 리셋 후 1페이지 다시 fetch
-  const handleSuccess = useCallback(async (entry: Entry) => {
-    // 낙관적 업데이트: 일단 맨 위에 추가
-    setEntries((prev) => [entry, ...prev]);
-    setPage(1);
-    // 서버에서 1페이지 다시 불러와 동기화
-    const res = await fetch(`/api/entries?page=1&limit=${LIMIT}`);
-    if (!res.ok) return;
-    const data = (await res.json()) as { entries: Entry[]; hasMore: boolean };
-    setEntries(data.entries);
-    setHasMore(data.hasMore);
-  }, []);
-
-  const handlePrev = () => {
-    const prev = page - 1;
-    setPage(prev);
-    fetchPage(prev);
-  };
-
-  const handleNext = () => {
-    const next = page + 1;
-    setPage(next);
-    fetchPage(next);
-  };
+  const handleSuccess = useCallback((_entry: Entry) => {
+    loadPage(1);
+  }, [loadPage]);
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -105,37 +83,22 @@ export default function Home() {
           <>
             <EntryList entries={entries} />
 
-            {/* ── 이전 / 페이지 / 다음 ── */}
             {(page > 1 || hasMore) && (
               <div className="mt-10 flex items-center justify-center gap-6">
                 <button
-                  onClick={handlePrev}
+                  onClick={() => loadPage(page - 1)}
                   disabled={page <= 1}
-                  className="
-                    px-4 py-1.5 font-mono text-xs tracking-widest
-                    border border-muted text-dim
-                    hover:border-accent/50 hover:text-accent
-                    disabled:opacity-20 disabled:cursor-not-allowed
-                    transition-all duration-200
-                  "
+                  className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   ← 이전
                 </button>
-
                 <span className="font-mono text-xs text-dim tabular-nums">
                   {page}
                 </span>
-
                 <button
-                  onClick={handleNext}
+                  onClick={() => loadPage(page + 1)}
                   disabled={!hasMore}
-                  className="
-                    px-4 py-1.5 font-mono text-xs tracking-widest
-                    border border-muted text-dim
-                    hover:border-accent/50 hover:text-accent
-                    disabled:opacity-20 disabled:cursor-not-allowed
-                    transition-all duration-200
-                  "
+                  className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   다음 →
                 </button>
