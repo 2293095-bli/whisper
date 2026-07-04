@@ -5,8 +5,7 @@ import TurnstileWidget from "./TurnstileWidget";
 import type { Entry } from "@/types";
 
 interface Props {
-  // async 핸들러도 허용하도록 반환 타입을 void | Promise<void>로 확장
-  onSuccess: (entry: Entry) => void | Promise<void>;
+  onSuccess: (entry: Entry) => void;
 }
 
 export default function EntryForm({ onSuccess }: Props) {
@@ -32,27 +31,17 @@ export default function EntryForm({ onSuccess }: Props) {
       const res = await fetch("/api/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: message.trim(),
-          turnstileToken,
-        }),
+        body: JSON.stringify({ message: message.trim(), turnstileToken }),
       });
 
-      const data: unknown = await res.json();
+      const data = await res.json() as Record<string, unknown>;
 
       if (!res.ok) {
-        const errMsg =
-          typeof data === "object" &&
-          data !== null &&
-          "error" in data &&
-          typeof (data as { error: unknown }).error === "string"
-            ? (data as { error: string }).error
-            : "오류가 발생했습니다.";
-        setError(errMsg);
+        setError(typeof data.error === "string" ? data.error : "오류가 발생했습니다.");
         return;
       }
 
-      await onSuccess(data as Entry);
+      onSuccess(data as unknown as Entry);
       setMessage("");
       setTurnstileToken(null);
       setSent(true);
@@ -64,17 +53,11 @@ export default function EntryForm({ onSuccess }: Props) {
     }
   };
 
-  const handleVerify = useCallback((token: string) => {
-    setTurnstileToken(token);
-  }, []);
-
-  const handleExpire = useCallback(() => {
-    setTurnstileToken(null);
-  }, []);
+  const handleVerify = useCallback((token: string) => setTurnstileToken(token), []);
+  const handleExpire = useCallback(() => setTurnstileToken(null), []);
 
   return (
     <div className="w-full">
-      {/* Textarea */}
       <div className="relative">
         <textarea
           value={message}
@@ -88,13 +71,7 @@ export default function EntryForm({ onSuccess }: Props) {
           placeholder="whispering..."
           maxLength={100}
           rows={3}
-          className="
-            w-full bg-paper border border-muted rounded
-            text-light placeholder-dim font-mono text-base
-            py-3 px-4 pr-16 resize-none outline-none
-            transition-colors focus:border-accent/60
-            leading-relaxed tracking-wide
-          "
+          className="w-full bg-paper border border-muted rounded text-light placeholder-dim font-mono text-base py-3 px-4 pr-16 resize-none outline-none transition-colors focus:border-accent/60 leading-relaxed tracking-wide"
         />
         <span
           className={[
@@ -107,33 +84,19 @@ export default function EntryForm({ onSuccess }: Props) {
         </span>
       </div>
 
-      {/* Cloudflare Turnstile — 입력창 아래, 제출 버튼 위 */}
       <TurnstileWidget onVerify={handleVerify} onExpire={handleExpire} />
 
-      {error && (
-        <p className="mt-3 text-red-400 text-sm font-mono">{error}</p>
-      )}
+      {error && <p className="mt-3 text-red-400 text-sm font-mono">{error}</p>}
 
-      {/* Actions */}
       <div className="mt-5 flex items-center justify-end">
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="
-            px-6 py-2.5 text-sm font-mono tracking-widest
-            border border-accent/40 text-accent
-            disabled:opacity-30 disabled:cursor-not-allowed
-            hover:bg-accent hover:text-ink active:scale-95
-            transition-all duration-200
-          "
+          className="px-6 py-2.5 text-sm font-mono tracking-widest border border-accent/40 text-accent disabled:opacity-30 disabled:cursor-not-allowed hover:bg-accent hover:text-ink active:scale-95 transition-all duration-200"
         >
           {loading ? (
             <span className="inline-block w-4 h-4 border border-current border-t-transparent rounded-full animate-spin" />
-          ) : sent ? (
-            "✓"
-          ) : (
-            "기록"
-          )}
+          ) : sent ? "✓" : "기록"}
         </button>
       </div>
     </div>
