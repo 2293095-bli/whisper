@@ -7,12 +7,23 @@ import type { Entry } from "@/types";
 
 const LIMIT = 30;
 
+type PageData = { entries: Entry[]; hasMore: boolean };
+
+async function fetchPageData(pageNum: number): Promise<PageData | null> {
+  try {
+    const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
+    if (!res.ok) return null;
+    return (await res.json()) as PageData;
+  } catch {
+    return null;
+  }
+}
+
 export default function Home() {
-  const [entries,  setEntries]  = useState<Entry[]>([]);
-  const [page,     setPage]     = useState(1);
-  const [hasMore,  setHasMore]  = useState(false);
-  const [loading,  setLoading]  = useState(true);   // 첫 로딩
-  const [loadMore, setLoadMore] = useState(false);  // 더보기 로딩
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [page,    setPage]    = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const todayLabel = new Date().toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -20,44 +31,26 @@ export default function Home() {
     day: "2-digit",
   });
 
-  // page 가 바뀔 때마다 해당 페이지 fetch
-  const fetchPage = useCallback(async (pageNum: number) => {
-    try {
-      const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
-      if (!res.ok) return;
-
-      const data = (await res.json()) as {
-        entries: Entry[];
-        hasMore: boolean;
-      };
-
-      setEntries((prev) =>
-        pageNum === 1 ? data.entries : [...prev, ...data.entries]
-      );
+  const loadPage = useCallback(async (pageNum: number) => {
+    setLoading(true);
+    const data = await fetchPageData(pageNum);
+    if (data) {
+      setEntries(data.entries);   // 항상 교체
       setHasMore(data.hasMore);
-    } finally {
-      if (pageNum === 1) setLoading(false);
-      else               setLoadMore(false);
+      setPage(pageNum);
     }
+    setLoading(false);
   }, []);
 
   // 첫 마운트
   useEffect(() => {
-    fetchPage(1);
-  }, [fetchPage]);
+    loadPage(1);
+  }, [loadPage]);
 
-  // 새 글 작성 성공 → 맨 위에 추가
-  const handleSuccess = (entry: Entry) => {
-    setEntries((prev) => [entry, ...prev]);
-  };
-
-  // 더 보기 클릭
-  const handleLoadMore = () => {
-    const next = page + 1;
-    setPage(next);
-    setLoadMore(true);
-    fetchPage(next);
-  };
+  // 새 글 작성 성공 → 1페이지로 리셋
+  const handleSuccess = useCallback(async (_entry: Entry) => {
+    await loadPage(1);
+  }, [loadPage]);
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -101,28 +94,39 @@ export default function Home() {
           <>
             <EntryList entries={entries} />
 
-            {/* ── 더 보기 버튼 ── */}
-            {hasMore && (
-              <div className="mt-10 flex justify-center">
+            {/* ── 이전 / 페이지 번호 / 다음 ── */}
+            {(page > 1 || hasMore) && (
+              <div className="mt-10 flex items-center justify-center gap-6">
                 <button
-                  onClick={handleLoadMore}
-                  disabled={loadMore}
+                  onClick={() => loadPage(page - 1)}
+                  disabled={page <= 1}
                   className="
-                    px-5 py-2 font-mono text-xs tracking-widest
+                    px-4 py-1.5 font-mono text-xs tracking-widest
                     border border-muted text-dim
                     hover:border-accent/50 hover:text-accent
-                    disabled:opacity-30 disabled:cursor-not-allowed
+                    disabled:opacity-20 disabled:cursor-not-allowed
                     transition-all duration-200
                   "
                 >
-                  {loadMore ? (
-                    <span className="inline-flex items-center gap-2">
-                      <span className="inline-block w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                      loading
-                    </span>
-                  ) : (
-                    "더 보기"
-                  )}
+                  ← 이전
+                </button>
+
+                <span className="font-mono text-xs text-dim tabular-nums">
+                  {page}
+                </span>
+
+                <button
+                  onClick={() => loadPage(page + 1)}
+                  disabled={!hasMore}
+                  className="
+                    px-4 py-1.5 font-mono text-xs tracking-widest
+                    border border-muted text-dim
+                    hover:border-accent/50 hover:text-accent
+                    disabled:opacity-20 disabled:cursor-not-allowed
+                    transition-all duration-200
+                  "
+                >
+                  다음 →
                 </button>
               </div>
             )}
