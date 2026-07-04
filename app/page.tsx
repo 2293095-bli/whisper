@@ -24,12 +24,20 @@ export default function Home() {
     try {
       const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
       if (!res.ok) return;
-      const json = await res.json() as { entries: Entry[]; hasMore: boolean };
-      setEntries(json.entries ?? []);
-      setHasMore(json.hasMore ?? false);
+      const json = await res.json();
+
+      // 응답이 배열이면 이전 버전 API — 그대로 사용
+      // 응답이 { entries, hasMore } 이면 새 버전 API
+      if (Array.isArray(json)) {
+        setEntries(json);
+        setHasMore(false);
+      } else {
+        setEntries(Array.isArray(json.entries) ? json.entries : []);
+        setHasMore(json.hasMore === true);
+      }
       setPage(pageNum);
     } catch {
-      // 네트워크 에러 무시 — 빈 목록 유지
+      setEntries([]);
     } finally {
       setLoading(false);
     }
