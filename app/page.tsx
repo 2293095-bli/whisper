@@ -8,10 +8,11 @@ import type { Entry } from "@/types";
 const LIMIT = 30;
 
 export default function Home() {
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [page,    setPage]    = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [entries,  setEntries]  = useState<Entry[]>([]);
+  const [page,     setPage]     = useState(1);
+  const [hasMore,  setHasMore]  = useState(false);
+  const [loading,  setLoading]  = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const todayLabel = new Date().toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -21,14 +22,33 @@ export default function Home() {
 
   const loadPage = useCallback(async (pageNum: number) => {
     setLoading(true);
+    setApiError(null);
     try {
       const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
-      if (!res.ok) { setEntries([]); setHasMore(false); return; }
       const json = await res.json();
-      setEntries(Array.isArray(json?.entries) ? json.entries : []);
-      setHasMore(json?.hasMore === true);
+
+      if (!res.ok) {
+        setApiError(`API 오류 (${res.status}): ${JSON.stringify(json)}`);
+        setEntries([]);
+        setHasMore(false);
+        return;
+      }
+
+      // 배열로 오면 이전 버전 route.ts
+      if (Array.isArray(json)) {
+        setEntries(json);
+        setHasMore(false);
+        setApiError("⚠️ route.ts가 구버전입니다 (배열 반환). { entries, hasMore } 형태여야 합니다.");
+      } else {
+        setEntries(Array.isArray(json?.entries) ? json.entries : []);
+        setHasMore(json?.hasMore === true);
+        if (!Array.isArray(json?.entries)) {
+          setApiError(`⚠️ entries 없음. 응답: ${JSON.stringify(json)}`);
+        }
+      }
       setPage(pageNum);
-    } catch {
+    } catch (e) {
+      setApiError(`네트워크 오류: ${String(e)}`);
       setEntries([]);
       setHasMore(false);
     } finally {
@@ -80,6 +100,13 @@ export default function Home() {
           </div>
         ) : (
           <>
+            {/* 디버그 에러 메시지 */}
+            {apiError && (
+              <p className="mb-6 font-mono text-xs text-red-400 break-all border border-red-900 p-3 rounded">
+                {apiError}
+              </p>
+            )}
+
             <EntryList entries={entries} />
 
             {/* ── 페이지네이션 — 항상 렌더링 ── */}
@@ -87,31 +114,17 @@ export default function Home() {
               <button
                 onClick={() => loadPage(page - 1)}
                 disabled={page <= 1}
-                className="
-                  px-4 py-1.5 font-mono text-xs tracking-widest
-                  border border-muted text-dim
-                  hover:border-accent/50 hover:text-accent
-                  disabled:opacity-20 disabled:cursor-not-allowed
-                  transition-all duration-200
-                "
+                className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
               >
                 ← 이전
               </button>
-
               <span className="font-mono text-xs text-dim tabular-nums">
                 Page {page}
               </span>
-
               <button
                 onClick={() => loadPage(page + 1)}
                 disabled={!hasMore}
-                className="
-                  px-4 py-1.5 font-mono text-xs tracking-widest
-                  border border-muted text-dim
-                  hover:border-accent/50 hover:text-accent
-                  disabled:opacity-20 disabled:cursor-not-allowed
-                  transition-all duration-200
-                "
+                className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
               >
                 다음 →
               </button>
