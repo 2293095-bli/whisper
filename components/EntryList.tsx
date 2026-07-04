@@ -18,19 +18,14 @@ function formatDate(dateStr: string): string {
   }
 }
 
-interface Props {
-  entries: Entry[];
-}
+export default function EntryList({ entries }: { entries: Entry[] }) {
+  const safe = Array.isArray(entries) ? entries : [];
 
-export default function EntryList({ entries }: Props) {
-  // null/undefined 방어
-  const safeEntries = Array.isArray(entries) ? entries : [];
-
-  if (safeEntries.length === 0) return null;
+  if (safe.length === 0) return null;
 
   return (
     <ul className="divide-y divide-[#191919]">
-      {safeEntries.map((entry, i) => (
+      {safe.map((entry, i) => (
         <li
           key={entry.id}
           className="py-6 animate-fade-up"
