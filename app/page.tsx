@@ -7,32 +7,33 @@ import type { Entry } from "@/types";
 
 const LIMIT = 30;
 
-function getPageNumbers(current: number, hasMore: boolean): (number | "...")[] {
-  // 총 페이지를 모르므로 현재 기준으로 앞뒤 2개씩 + 첫 페이지 표시
-  const last = hasMore ? current + 1 : current; // 다음이 있으면 최소 current+1
-  const pages: (number | "...")[] = [];
-
-  // 항상 1 표시
-  pages.push(1);
-
-  const start = Math.max(2, current - 2);
-  const end   = Math.min(last, current + 2);
-
-  if (start > 2) pages.push("...");
-  for (let i = start; i <= end; i++) pages.push(i);
-  if (end < last) {
-    if (end < last - 1) pages.push("...");
-    pages.push(last);
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
   }
-
+  const pages: (number | "...")[] = [1];
+  if (current <= 4) {
+    for (let i = 2; i <= 5; i++) pages.push(i);
+    pages.push("...");
+  } else if (current >= total - 3) {
+    pages.push("...");
+    for (let i = total - 4; i <= total - 1; i++) pages.push(i);
+  } else {
+    pages.push("...");
+    pages.push(current - 1);
+    pages.push(current);
+    pages.push(current + 1);
+    pages.push("...");
+  }
+  pages.push(total);
   return pages;
 }
 
 export default function Home() {
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [page,    setPage]    = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [entries,    setEntries]    = useState<Entry[]>([]);
+  const [page,       setPage]       = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading,    setLoading]    = useState(true);
 
   const todayLabel = new Date().toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -46,11 +47,11 @@ export default function Home() {
       const res  = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
       const json = await res.json();
       setEntries(Array.isArray(json?.entries) ? json.entries : []);
-      setHasMore(json?.hasMore === true);
+      setTotalPages(typeof json?.totalPages === "number" ? Math.max(1, json.totalPages) : 1);
       setPage(pageNum);
     } catch {
       setEntries([]);
-      setHasMore(false);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,11 @@ export default function Home() {
 
   const handleSuccess = useCallback((_entry: Entry) => { loadPage(1); }, [loadPage]);
 
-  const pageNumbers = getPageNumbers(page, hasMore);
+  const pageNumbers = getPageNumbers(page, totalPages);
+
+  const btnBase = "px-2.5 py-1.5 font-mono text-xs border transition-all duration-200";
+  const btnIdle = "border-muted/40 text-dim hover:border-white/30 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed";
+  const btnActive = "border-white/60 text-white bg-white/10";
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -91,40 +96,41 @@ export default function Home() {
       <section className="flex-1 px-6 pt-10 pb-16 max-w-lg mx-auto w-full" aria-label="방명록 목록">
         {loading ? (
           <div className="flex justify-center pt-16">
-            <div className="w-5 h-5 border border-dim border-t-accent rounded-full animate-spin" />
+            <div className="w-5 h-5 border border-dim border-t-white/40 rounded-full animate-spin" />
           </div>
         ) : (
           <>
             <EntryList entries={entries} />
 
-            {/* ── 페이지네이션 ── */}
             <div className="mt-10 flex items-center justify-center gap-1 flex-wrap">
+              {/* 맨 처음 */}
+              <button
+                onClick={() => loadPage(1)}
+                disabled={page <= 1}
+                className={`${btnBase} ${btnIdle}`}
+              >
+                «
+              </button>
               {/* 이전 */}
               <button
                 onClick={() => loadPage(page - 1)}
                 disabled={page <= 1}
-                className="px-3 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                className={`${btnBase} ${btnIdle}`}
               >
-                ←
+                ‹
               </button>
 
-              {/* 페이지 번호들 */}
+              {/* 번호 */}
               {pageNumbers.map((p, i) =>
                 p === "..." ? (
-                  <span key={`ellipsis-${i}`} className="px-2 font-mono text-xs text-dim">
+                  <span key={`dots-${i}`} className="px-1.5 font-mono text-xs text-dim select-none">
                     …
                   </span>
                 ) : (
                   <button
                     key={p}
                     onClick={() => loadPage(p as number)}
-                    className={`
-                      min-w-[32px] px-2 py-1.5 font-mono text-xs border transition-all duration-200
-                      ${p === page
-                        ? "border-accent/60 text-accent bg-accent/10"
-                        : "border-muted text-dim hover:border-accent/50 hover:text-accent"
-                      }
-                    `}
+                    className={`${btnBase} min-w-[32px] ${p === page ? btnActive : btnIdle}`}
                   >
                     {p}
                   </button>
@@ -134,10 +140,18 @@ export default function Home() {
               {/* 다음 */}
               <button
                 onClick={() => loadPage(page + 1)}
-                disabled={!hasMore}
-                className="px-3 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                disabled={page >= totalPages}
+                className={`${btnBase} ${btnIdle}`}
               >
-                →
+                ›
+              </button>
+              {/* 맨 끝 */}
+              <button
+                onClick={() => loadPage(totalPages)}
+                disabled={page >= totalPages}
+                className={`${btnBase} ${btnIdle}`}
+              >
+                »
               </button>
             </div>
           </>
