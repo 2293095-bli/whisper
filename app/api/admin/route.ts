@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTurnstile } from "@/lib/turnstile";
 
+// ── GET /api/entries?page=1&limit=30 ─────────────────────────────────────────
+// { entries: Entry[], hasMore: boolean } 형태로 반환
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -9,7 +12,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.max(1, parseInt(searchParams.get("limit") ?? "30", 10));
 
     const from = (page - 1) * limit;
-    const to   = from + limit; // limit+1개 → hasMore 판별
+    const to   = from + limit; // limit+1개 가져와서 hasMore 판별
 
     const db = getSupabaseAdmin();
     const { data, error } = await db
@@ -33,9 +36,11 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// ── POST /api/entries ─────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { message?: unknown; turnstileToken?: unknown };
+    const body = (await req.json()) as { message?: unknown; turnstileToken?: unknown };
 
     const trimmed = (typeof body.message === "string" ? body.message : "").trim();
 
