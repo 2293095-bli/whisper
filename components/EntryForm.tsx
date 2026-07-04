@@ -5,7 +5,8 @@ import TurnstileWidget from "./TurnstileWidget";
 import type { Entry } from "@/types";
 
 interface Props {
-  onSuccess: (entry: Entry) => void;
+  // async 핸들러도 허용하도록 반환 타입을 void | Promise<void>로 확장
+  onSuccess: (entry: Entry) => void | Promise<void>;
 }
 
 export default function EntryForm({ onSuccess }: Props) {
@@ -51,7 +52,7 @@ export default function EntryForm({ onSuccess }: Props) {
         return;
       }
 
-      onSuccess(data as Entry);
+      await onSuccess(data as Entry);
       setMessage("");
       setTurnstileToken(null);
       setSent(true);
