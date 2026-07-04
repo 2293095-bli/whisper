@@ -23,21 +23,14 @@ export default function Home() {
     setLoading(true);
     try {
       const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
-      if (!res.ok) return;
+      if (!res.ok) { setEntries([]); setHasMore(false); return; }
       const json = await res.json();
-
-      // 응답이 배열이면 이전 버전 API — 그대로 사용
-      // 응답이 { entries, hasMore } 이면 새 버전 API
-      if (Array.isArray(json)) {
-        setEntries(json);
-        setHasMore(false);
-      } else {
-        setEntries(Array.isArray(json.entries) ? json.entries : []);
-        setHasMore(json.hasMore === true);
-      }
+      setEntries(Array.isArray(json?.entries) ? json.entries : []);
+      setHasMore(json?.hasMore === true);
       setPage(pageNum);
     } catch {
       setEntries([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -45,9 +38,7 @@ export default function Home() {
 
   useEffect(() => { loadPage(1); }, [loadPage]);
 
-  const handleSuccess = useCallback((_entry: Entry) => {
-    loadPage(1);
-  }, [loadPage]);
+  const handleSuccess = useCallback((_entry: Entry) => { loadPage(1); }, [loadPage]);
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -91,27 +82,40 @@ export default function Home() {
           <>
             <EntryList entries={entries} />
 
-            {(page > 1 || hasMore) && (
-              <div className="mt-10 flex items-center justify-center gap-6">
-                <button
-                  onClick={() => loadPage(page - 1)}
-                  disabled={page <= 1}
-                  className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  ← 이전
-                </button>
-                <span className="font-mono text-xs text-dim tabular-nums">
-                  {page}
-                </span>
-                <button
-                  onClick={() => loadPage(page + 1)}
-                  disabled={!hasMore}
-                  className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  다음 →
-                </button>
-              </div>
-            )}
+            {/* ── 페이지네이션 — 항상 렌더링 ── */}
+            <div className="mt-10 flex items-center justify-center gap-8">
+              <button
+                onClick={() => loadPage(page - 1)}
+                disabled={page <= 1}
+                className="
+                  px-4 py-1.5 font-mono text-xs tracking-widest
+                  border border-muted text-dim
+                  hover:border-accent/50 hover:text-accent
+                  disabled:opacity-20 disabled:cursor-not-allowed
+                  transition-all duration-200
+                "
+              >
+                ← 이전
+              </button>
+
+              <span className="font-mono text-xs text-dim tabular-nums">
+                Page {page}
+              </span>
+
+              <button
+                onClick={() => loadPage(page + 1)}
+                disabled={!hasMore}
+                className="
+                  px-4 py-1.5 font-mono text-xs tracking-widest
+                  border border-muted text-dim
+                  hover:border-accent/50 hover:text-accent
+                  disabled:opacity-20 disabled:cursor-not-allowed
+                  transition-all duration-200
+                "
+              >
+                다음 →
+              </button>
+            </div>
           </>
         )}
       </section>
