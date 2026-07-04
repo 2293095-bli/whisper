@@ -8,27 +8,34 @@ export async function GET(req: NextRequest) {
     const page  = Math.max(1, parseInt(searchParams.get("page")  ?? "1",  10));
     const limit = Math.max(1, parseInt(searchParams.get("limit") ?? "30", 10));
     const from  = (page - 1) * limit;
-    const to    = from + limit; // +1개 가져와서 hasMore 판별
+    const to    = from + limit - 1;
 
     const db = getSupabaseAdmin();
-    const { data, error } = await db
-      .from("guestbook_entries")
-      .select("id, message, created_at")
-      .eq("is_hidden", false)
-      .order("created_at", { ascending: false })
-      .range(from, to);
 
-    if (error) {
-      return NextResponse.json({ entries: [], hasMore: false }, { status: 500 });
+    const [countResult, dataResult] = await Promise.all([
+      db
+        .from("guestbook_entries")
+        .select("*", { count: "exact", head: true })
+        .eq("is_hidden", false),
+      db
+        .from("guestbook_entries")
+        .select("id, message, created_at")
+        .eq("is_hidden", false)
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    ]);
+
+    if (dataResult.error) {
+      return NextResponse.json({ entries: [], total: 0, totalPages: 1 }, { status: 500 });
     }
 
-    const rows    = Array.isArray(data) ? data : [];
-    const hasMore = rows.length > limit;
-    const entries = rows.slice(0, limit);
+    const total      = countResult.count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const entries    = Array.isArray(dataResult.data) ? dataResult.data : [];
 
-    return NextResponse.json({ entries, hasMore });
+    return NextResponse.json({ entries, total, totalPages });
   } catch {
-    return NextResponse.json({ entries: [], hasMore: false }, { status: 500 });
+    return NextResponse.json({ entries: [], total: 0, totalPages: 1 }, { status: 500 });
   }
 }
 
