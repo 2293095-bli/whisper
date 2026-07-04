@@ -7,11 +7,34 @@ import type { Entry } from "@/types";
 
 const LIMIT = 30;
 
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const pages: (number | "...")[] = [1];
+
+  if (current <= 4) {
+    for (let i = 2; i <= Math.min(5, total - 1); i++) pages.push(i);
+    pages.push("...");
+  } else if (current >= total - 3) {
+    pages.push("...");
+    for (let i = Math.max(2, total - 4); i <= total - 1; i++) pages.push(i);
+  } else {
+    pages.push("...");
+    for (let i = current - 1; i <= current + 1; i++) pages.push(i);
+    pages.push("...");
+  }
+
+  pages.push(total);
+  return pages;
+}
+
 export default function Home() {
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [page,    setPage]    = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [entries,    setEntries]    = useState<Entry[]>([]);
+  const [page,       setPage]       = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading,    setLoading]    = useState(true);
 
   const todayLabel = new Date().toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -25,11 +48,11 @@ export default function Home() {
       const res  = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
       const json = await res.json();
       setEntries(Array.isArray(json?.entries) ? json.entries : []);
-      setHasMore(json?.hasMore === true);
+      setTotalPages(typeof json?.totalPages === "number" ? Math.max(1, json.totalPages) : 1);
       setPage(pageNum);
     } catch {
       setEntries([]);
-      setHasMore(false);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -38,6 +61,8 @@ export default function Home() {
   useEffect(() => { loadPage(1); }, [loadPage]);
 
   const handleSuccess = useCallback((_entry: Entry) => { loadPage(1); }, [loadPage]);
+
+  const pageNumbers = getPageNumbers(page, totalPages);
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -74,23 +99,65 @@ export default function Home() {
           <>
             <EntryList entries={entries} />
 
-            <div className="mt-10 flex items-center justify-center gap-8">
+            {/* ── 페이지네이션 ── */}
+            <div className="mt-10 flex items-center justify-center gap-1 flex-wrap">
+              {/* 맨 처음 */}
+              <button
+                onClick={() => loadPage(1)}
+                disabled={page <= 1}
+                className="px-2 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                «
+              </button>
+
+              {/* 이전 */}
               <button
                 onClick={() => loadPage(page - 1)}
                 disabled={page <= 1}
-                className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                className="px-2 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
               >
-                ← 이전
+                ‹
               </button>
-              <span className="font-mono text-xs text-dim tabular-nums">
-                Page {page}
-              </span>
+
+              {/* 페이지 번호 */}
+              {pageNumbers.map((p, i) =>
+                p === "..." ? (
+                  <span key={`ellipsis-${i}`} className="px-2 font-mono text-xs text-dim select-none">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => loadPage(p as number)}
+                    className={`
+                      min-w-[32px] px-2 py-1.5 font-mono text-xs border transition-all duration-200
+                      ${p === page
+                        ? "border-accent/60 text-accent bg-accent/10"
+                        : "border-muted text-dim hover:border-accent/50 hover:text-accent"
+                      }
+                    `}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+
+              {/* 다음 */}
               <button
                 onClick={() => loadPage(page + 1)}
-                disabled={!hasMore}
-                className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                disabled={page >= totalPages}
+                className="px-2 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
               >
-                다음 →
+                ›
+              </button>
+
+              {/* 맨 끝 */}
+              <button
+                onClick={() => loadPage(totalPages)}
+                disabled={page >= totalPages}
+                className="px-2 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                »
               </button>
             </div>
           </>
