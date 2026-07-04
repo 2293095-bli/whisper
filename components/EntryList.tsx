@@ -2,25 +2,20 @@
 
 import type { Entry } from "@/types";
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60_000);
-  const hours = Math.floor(diff / 3_600_000);
-  const days = Math.floor(diff / 86_400_000);
-
-  if (mins < 1) return "방금";
-  if (mins < 60) return `${mins}분 전`;
-  if (hours < 24) return `${hours}시간 전`;
-  if (days < 7) return `${days}일 전`;
-  return new Date(dateStr).toLocaleDateString("ko-KR", {
+// "2026년 7월 4일 00:39" 형식, 한국 시간(KST) 기준
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
     year: "numeric",
     month: "long",
     day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   });
 }
 
 export default function EntryList({ entries }: { entries: Entry[] }) {
-  // 글 없으면 아무것도 렌더링하지 않음
   if (entries.length === 0) return null;
 
   return (
@@ -38,7 +33,7 @@ export default function EntryList({ entries }: { entries: Entry[] }) {
             {entry.message}
           </p>
           <time className="mt-2 block font-mono text-xs text-dim tracking-widest">
-            {timeAgo(entry.created_at)}
+            {formatDate(entry.created_at)}
           </time>
         </li>
       ))}
