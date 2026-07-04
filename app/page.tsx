@@ -7,12 +7,32 @@ import type { Entry } from "@/types";
 
 const LIMIT = 30;
 
+function getPageNumbers(current: number, hasMore: boolean): (number | "...")[] {
+  // 총 페이지를 모르므로 현재 기준으로 앞뒤 2개씩 + 첫 페이지 표시
+  const last = hasMore ? current + 1 : current; // 다음이 있으면 최소 current+1
+  const pages: (number | "...")[] = [];
+
+  // 항상 1 표시
+  pages.push(1);
+
+  const start = Math.max(2, current - 2);
+  const end   = Math.min(last, current + 2);
+
+  if (start > 2) pages.push("...");
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (end < last) {
+    if (end < last - 1) pages.push("...");
+    pages.push(last);
+  }
+
+  return pages;
+}
+
 export default function Home() {
-  const [entries,  setEntries]  = useState<Entry[]>([]);
-  const [page,     setPage]     = useState(1);
-  const [hasMore,  setHasMore]  = useState(false);
-  const [loading,  setLoading]  = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [page,    setPage]    = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const todayLabel = new Date().toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -22,33 +42,13 @@ export default function Home() {
 
   const loadPage = useCallback(async (pageNum: number) => {
     setLoading(true);
-    setApiError(null);
     try {
-      const res = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
+      const res  = await fetch(`/api/entries?page=${pageNum}&limit=${LIMIT}`);
       const json = await res.json();
-
-      if (!res.ok) {
-        setApiError(`API 오류 (${res.status}): ${JSON.stringify(json)}`);
-        setEntries([]);
-        setHasMore(false);
-        return;
-      }
-
-      // 배열로 오면 이전 버전 route.ts
-      if (Array.isArray(json)) {
-        setEntries(json);
-        setHasMore(false);
-        setApiError("⚠️ route.ts가 구버전입니다 (배열 반환). { entries, hasMore } 형태여야 합니다.");
-      } else {
-        setEntries(Array.isArray(json?.entries) ? json.entries : []);
-        setHasMore(json?.hasMore === true);
-        if (!Array.isArray(json?.entries)) {
-          setApiError(`⚠️ entries 없음. 응답: ${JSON.stringify(json)}`);
-        }
-      }
+      setEntries(Array.isArray(json?.entries) ? json.entries : []);
+      setHasMore(json?.hasMore === true);
       setPage(pageNum);
-    } catch (e) {
-      setApiError(`네트워크 오류: ${String(e)}`);
+    } catch {
       setEntries([]);
       setHasMore(false);
     } finally {
@@ -60,9 +60,10 @@ export default function Home() {
 
   const handleSuccess = useCallback((_entry: Entry) => { loadPage(1); }, [loadPage]);
 
+  const pageNumbers = getPageNumbers(page, hasMore);
+
   return (
     <main className="min-h-screen flex flex-col">
-      {/* ── Header ── */}
       <header className="px-6 pt-16 pb-10 max-w-lg mx-auto w-full animate-fade-in">
         <span className="font-mono text-xs text-dim tracking-[0.3em]">
           {todayLabel}
@@ -72,7 +73,6 @@ export default function Home() {
         </h1>
       </header>
 
-      {/* ── Form ── */}
       <section
         className="px-6 pb-14 max-w-lg mx-auto w-full animate-fade-up"
         style={{ animationDelay: "120ms", opacity: 0 }}
@@ -80,7 +80,6 @@ export default function Home() {
         <EntryForm onSuccess={handleSuccess} />
       </section>
 
-      {/* ── Divider ── */}
       <div className="max-w-lg mx-auto w-full px-6">
         <div className="border-t border-muted/60 relative">
           <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-ink px-3 font-mono text-xs text-dim tracking-widest">
@@ -89,51 +88,62 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Entries ── */}
-      <section
-        className="flex-1 px-6 pt-10 pb-16 max-w-lg mx-auto w-full"
-        aria-label="방명록 목록"
-      >
+      <section className="flex-1 px-6 pt-10 pb-16 max-w-lg mx-auto w-full" aria-label="방명록 목록">
         {loading ? (
           <div className="flex justify-center pt-16">
             <div className="w-5 h-5 border border-dim border-t-accent rounded-full animate-spin" />
           </div>
         ) : (
           <>
-            {/* 디버그 에러 메시지 */}
-            {apiError && (
-              <p className="mb-6 font-mono text-xs text-red-400 break-all border border-red-900 p-3 rounded">
-                {apiError}
-              </p>
-            )}
-
             <EntryList entries={entries} />
 
-            {/* ── 페이지네이션 — 항상 렌더링 ── */}
-            <div className="mt-10 flex items-center justify-center gap-8">
+            {/* ── 페이지네이션 ── */}
+            <div className="mt-10 flex items-center justify-center gap-1 flex-wrap">
+              {/* 이전 */}
               <button
                 onClick={() => loadPage(page - 1)}
                 disabled={page <= 1}
-                className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                className="px-3 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
               >
-                ← 이전
+                ←
               </button>
-              <span className="font-mono text-xs text-dim tabular-nums">
-                Page {page}
-              </span>
+
+              {/* 페이지 번호들 */}
+              {pageNumbers.map((p, i) =>
+                p === "..." ? (
+                  <span key={`ellipsis-${i}`} className="px-2 font-mono text-xs text-dim">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => loadPage(p as number)}
+                    className={`
+                      min-w-[32px] px-2 py-1.5 font-mono text-xs border transition-all duration-200
+                      ${p === page
+                        ? "border-accent/60 text-accent bg-accent/10"
+                        : "border-muted text-dim hover:border-accent/50 hover:text-accent"
+                      }
+                    `}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+
+              {/* 다음 */}
               <button
                 onClick={() => loadPage(page + 1)}
                 disabled={!hasMore}
-                className="px-4 py-1.5 font-mono text-xs tracking-widest border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
+                className="px-3 py-1.5 font-mono text-xs border border-muted text-dim hover:border-accent/50 hover:text-accent disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-200"
               >
-                다음 →
+                →
               </button>
             </div>
           </>
         )}
       </section>
 
-      {/* ── Footer ── */}
       <footer className="pb-8 text-center">
         <p className="font-mono text-xs text-muted tracking-wider">
           익명으로 남겨집니다
