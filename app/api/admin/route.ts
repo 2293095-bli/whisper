@@ -2,46 +2,47 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyTurnstile } from "@/lib/turnstile";
 
-// ── GET /api/entries?page=1&limit=30 ─────────────────────────────────────────
-// { entries: Entry[], hasMore: boolean } 형태로 반환
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page  = Math.max(1, parseInt(searchParams.get("page")  ?? "1",  10));
     const limit = Math.max(1, parseInt(searchParams.get("limit") ?? "30", 10));
-
-    const from = (page - 1) * limit;
-    const to   = from + limit; // limit+1개 가져와서 hasMore 판별
+    const from  = (page - 1) * limit;
+    const to    = from + limit - 1;
 
     const db = getSupabaseAdmin();
-    const { data, error } = await db
-      .from("guestbook_entries")
-      .select("id, message, created_at")
-      .eq("is_hidden", false)
-      .order("created_at", { ascending: false })
-      .range(from, to);
 
-    if (error) {
-      return NextResponse.json({ entries: [], hasMore: false }, { status: 500 });
+    // 전체 개수 + 페이지 데이터 동시에 가져오기
+    const [countResult, dataResult] = await Promise.all([
+      db
+        .from("guestbook_entries")
+        .select("*", { count: "exact", head: true })
+        .eq("is_hidden", false),
+      db
+        .from("guestbook_entries")
+        .select("id, message, created_at")
+        .eq("is_hidden", false)
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    ]);
+
+    if (dataResult.error) {
+      return NextResponse.json({ entries: [], total: 0, totalPages: 1 }, { status: 500 });
     }
 
-    const rows    = Array.isArray(data) ? data : [];
-    const hasMore = rows.length > limit;
-    const entries = rows.slice(0, limit);
+    const total      = countResult.count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const entries    = Array.isArray(dataResult.data) ? dataResult.data : [];
 
-    return NextResponse.json({ entries, hasMore });
+    return NextResponse.json({ entries, total, totalPages });
   } catch {
-    return NextResponse.json({ entries: [], hasMore: false }, { status: 500 });
+    return NextResponse.json({ entries: [], total: 0, totalPages: 1 }, { status: 500 });
   }
 }
-
-// ── POST /api/entries ─────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as { message?: unknown; turnstileToken?: unknown };
-
     const trimmed = (typeof body.message === "string" ? body.message : "").trim();
 
     if (!trimmed) {
